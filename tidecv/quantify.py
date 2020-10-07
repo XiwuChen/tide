@@ -10,6 +10,7 @@ from collections import defaultdict, OrderedDict
 import numpy as np
 from typing import Union
 import os, math
+from .kittidataset import kitti_utils
 
 class TIDEExample:
 	""" Computes all the data needed to evaluate a set of predictions and gt for a single image. """
@@ -19,6 +20,7 @@ class TIDEExample:
 		self.ignore_regions = [x for x in gt if     x['ignore']]
 		
 		self.mode       = mode
+		assert self.mode in [TIDE.BOX,TIDE.MASK,TIDE.BOX3D]
 		self.pos_thresh = pos_thresh
 		self.max_dets   = max_dets
 		self.run_errors = run_errors
@@ -29,7 +31,7 @@ class TIDEExample:
 		preds    = self.preds
 		gt       = self.gt
 		ignore   = self.ignore_regions
-		det_type = 'bbox' if self.mode == TIDE.BOX else 'mask'
+		det_type = self.mode
 		max_dets = self.max_dets
 
 		if len(preds) == 0:
@@ -40,15 +42,22 @@ class TIDEExample:
 		preds.sort(key=lambda pred: -pred['score'])
 		preds = preds[:max_dets]
 		self.preds = preds # Update internally so TIDERun can update itself if :max_dets takes effect
-		detections = [x[det_type] for x in preds]
+
+
 
 		
 		# IoU is [len(detections), len(gt)]
-		self.gt_iou = mask_utils.iou(
-			detections,
-			[x[det_type] for x in gt],
-			[False] * len(gt))
-
+		if det_type in [TIDE.MASK,TIDE.BOX]:
+			detections = [x[det_type] for x in preds]
+			self.gt_iou = mask_utils.iou(
+				detections,
+				[x[det_type] for x in gt],
+				[False] * len(gt))
+		elif det_type in [TIDE.BOX3D]:
+			detections = np.array([x['bbox'].corner3d for x in preds]).reshape((-1,8,3))
+			gt_corners = np.array([x['bbox'].corner3d for x in gt]).reshape((-1,8,3))
+			#(detection,gt)
+			self.gt_iou = kitti_utils.get_iou3d(detections,query_corners3d=gt_corners,need_bev=False)
 		# Store whether a prediction / gt got used in their data list
 		# Note: this is set to None if ignored, keep that in mind
 		for idx, pred in enumerate(preds):
@@ -97,11 +106,16 @@ class TIDEExample:
 					# The region should span the whole image
 					ignore_iou = [1] * len(preds)
 				else:
-					if ignore_region[det_type] is None:
-						# There is no det_type annotation for this specific region so skip it
-						continue
-					# Otherwise, compute the crowd IoU between the detections and this region
-					ignore_iou = mask_utils.iou(detections, [ignore_region[det_type]], [True])
+					if det_type in [TIDE.MASK, TIDE.BOX]:
+						if ignore_region[det_type] is None:
+							# There is no det_type annotation for this specific region so skip it
+							continue
+						# Otherwise, compute the crowd IoU between the detections and this region
+						ignore_iou = mask_utils.iou(detections, [ignore_region[det_type]], [True])
+					elif det_type in [TIDE.BOX3D]:
+						ignore_corners = np.array([ignore_region['bbox'].corner3d]).reshape((-1, 8, 3))
+						ignore_iou = kitti_utils.get_iou3d(ignore_corners, query_corners3d=detections, need_bev=False)
+						ignore_iou = ignore_iou.tolist()[0]
 
 				for pred_idx, pred_elem in enumerate(preds):
 					if not pred_elem['used'] and (ignore_iou[pred_idx] > self.pos_thresh) \
@@ -424,6 +438,7 @@ class TIDE:
 	# The modes of evaluation
 	BOX  = 'bbox'
 	MASK = 'mask'
+	BOX3D = 'bbox3d'
 
 	def __init__(self, pos_threshold:float=0.5, background_threshold:float=0.1, mode:str=BOX):
 		self.pos_thresh = pos_threshold

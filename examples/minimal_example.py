@@ -2,7 +2,15 @@
 # Run coco_example.py first to get mask_rcnn_bbox.json
 from tidecv import TIDE, datasets
 
-tide = TIDE()
-tide.evaluate(datasets.COCO(), datasets.COCOResult('mask_rcnn_bbox.json'), mode=TIDE.BOX)
-tide.summarize()
-tide.plot()
+if __name__ == '__main__':
+    tide = TIDE()
+    KITTI_DataPath = ''
+    pred_label_path = ''
+    gt_data = datasets.KITTI(split='val', path=KITTI_DataPath, use_box2d=False)
+    pred_data = datasets.KITTIResult(split='val', path=KITTI_DataPath, use_box2d=False,
+                                     pred_label_path=pred_label_path)
+    tide.evaluate(gt=gt_data, preds=pred_data, mode=TIDE.BOX3D)
+
+    tide.summarize()
+    tide.plot()
+

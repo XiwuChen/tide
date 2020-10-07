@@ -82,7 +82,7 @@ class Data():
 		""" Add a ground truth. If box or mask is None, this GT will be ignored for that mode. """
 		self._add(image_id, class_id, box, mask)
 
-	def add_detection(self, image_id:int, class_id:int, score:int, box:object=None, mask:object=None):
+	def add_detection(self, image_id:int, class_id:int, score:float, box:object=None, mask:object=None):
 		""" Add a predicted detection. If box or mask is None, this prediction will be ignored for that mode. """
 		self._add(image_id, class_id, box, mask, score=score)
 
