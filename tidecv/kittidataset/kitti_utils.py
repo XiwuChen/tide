@@ -3,6 +3,7 @@ from scipy.spatial import Delaunay
 import scipy
 from . import object3d
 import torch
+import cv2
 
 
 def get_objects_from_label(label_file):
@@ -236,3 +237,115 @@ def get_iou3d(corners3d, query_corners3d, need_bev = False):
         return iou3d, iou_bev
 
     return iou3d
+
+
+def project_to_image(pts_3d, P):
+    ''' Project 3d points to image plane.
+
+    Usage: pts_2d = projectToImage(pts_3d, P)
+      input: pts_3d: nx3 matrix
+             P:      3x4 projection matrix
+      output: pts_2d: nx2 matrix
+
+      P(3x4) dot pts_3d_extended(4xn) = projected_pts_2d(3xn)
+      => normalize projected_pts_2d(2xn)
+
+      <=> pts_3d_extended(nx4) dot P'(4x3) = projected_pts_2d(nx3)
+          => normalize projected_pts_2d(nx2)
+    '''
+    n = pts_3d.shape[0]
+    pts_3d_extend = np.hstack((pts_3d, np.ones((n, 1))))
+    print(('pts_3d_extend shape: ', pts_3d_extend.shape))
+    pts_2d = np.dot(pts_3d_extend, np.transpose(P))  # nx3
+    pts_2d[:, 0] /= pts_2d[:, 2]
+    pts_2d[:, 1] /= pts_2d[:, 2]
+    return pts_2d[:, 0:2]
+
+def roty(t):
+    ''' Rotation about the y-axis. '''
+    c = np.cos(t)
+    s = np.sin(t)
+    return np.array([[c, 0, s],
+                     [0, 1, 0],
+                     [-s, 0, c]])
+
+
+def compute_box_3d(obj:object3d.Object3d, P):
+    ''' Takes an object and a projection matrix (P) and projects the 3d
+        bounding box into the image plane.
+        Returns:
+            corners_2d: (8,2) array in left image coord.
+            corners_3d: (8,3) array in in rect camera coord.
+    '''
+    # compute rotational matrix around yaw axis
+    R = roty(obj.ry)
+
+    # 3d bounding box dimensions
+    l = obj.l
+    w = obj.w
+    h = obj.h
+
+    # 3d bounding box corners
+    x_corners = [l / 2, l / 2, -l / 2, -l / 2, l / 2, l / 2, -l / 2, -l / 2]
+    y_corners = [0, 0, 0, 0, -h, -h, -h, -h]
+    z_corners = [w / 2, -w / 2, -w / 2, w / 2, w / 2, -w / 2, -w / 2, w / 2]
+
+    # rotate and translate 3d bounding box
+    corners_3d = np.dot(R, np.vstack([x_corners, y_corners, z_corners]))
+    # print corners_3d.shape
+    corners_3d[0, :] = corners_3d[0, :] + obj.pos[0]
+    corners_3d[1, :] = corners_3d[1, :] + obj.pos[1]
+    corners_3d[2, :] = corners_3d[2, :] + obj.pos[2]
+    # print 'cornsers_3d: ', corners_3d
+    # only draw 3d bounding box for objs in front of the camera
+    if np.any(corners_3d[2, :] < 0.1):
+        corners_2d = None
+        return corners_2d, np.transpose(corners_3d)
+
+    # project the 3d bounding box into the image plane
+    corners_2d = project_to_image(np.transpose(corners_3d), P)
+    # print 'corners_2d: ', corners_2d
+    return corners_2d, np.transpose(corners_3d)
+
+def draw_projected_box3d(image, qs, color=(0, 0, 255), thickness=2):
+    ''' Draw 3d bounding box in image
+        qs: (8,3) array of vertices for the 3d box in following order:
+            1 -------- 0
+           /|         /|
+          2 -------- 3 .
+          | |        | |
+          . 5 -------- 4
+          |/         |/
+          6 -------- 7
+    '''
+    qs = qs.astype(np.int32)
+    for k in range(0, 4):
+        # Ref: http://docs.enthought.com/mayavi/mayavi/auto/mlab_helper_functions.html
+        i, j = k, (k + 1) % 4
+        # use LINE_AA for opencv3
+        cv2.line(image, (qs[i, 0], qs[i, 1]), (qs[j, 0], qs[j, 1]), color, thickness)
+
+        i, j = k + 4, (k + 1) % 4 + 4
+        cv2.line(image, (qs[i, 0], qs[i, 1]), (qs[j, 0], qs[j, 1]), color, thickness)
+
+        i, j = k, k + 4
+        cv2.line(image, (qs[i, 0], qs[i, 1]), (qs[j, 0], qs[j, 1]), color, thickness)
+    return image
+
+def draw_text(image, box3d_pts_2d, score, color='red', thickness=1):
+    """
+    :param image:
+    :param box3d_pts_2d:(8,2)
+    :param score:
+    :param color:
+    :param thickness:
+    :return:
+    """
+    text = str(score)
+    left_top = np.min(box3d_pts_2d, axis=0)
+    right_bottom = np.max(box3d_pts_2d, axis=0)
+    # choose a reasonable location.
+    location = left_top if (left_top[0] > 0 and left_top[1] > 0) else right_bottom
+    location=[int(i) for i in location]
+    cv2.putText(image, text, tuple(location),fontFace=cv2.FONT_ITALIC,fontScale=0.5, thickness=thickness,color=color)
+    return image

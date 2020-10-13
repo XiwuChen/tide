@@ -4,6 +4,7 @@ import torch.utils.data as torch_data
 from . import calibration
 from . import  kitti_utils
 from PIL import Image
+import cv2
 
 
 class KittiDataset(torch_data.Dataset):
@@ -27,8 +28,8 @@ class KittiDataset(torch_data.Dataset):
         self.image_hw_with_padding_np = np.array([1280., 384.])
 
     def get_image(self, idx):
-        assert False, 'DO NOT USE cv2 NOW, AVOID DEADLOCK'
-        import cv2
+        # assert False, 'DO NOT USE cv2 NOW, AVOID DEADLOCK'
+        # import cv2
         # cv2.setNumThreads(0)  # for solving deadlock when switching epoch
         img_file = os.path.join(self.image_dir, '%06d.png' % idx)
         assert os.path.exists(img_file)

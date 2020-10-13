@@ -26,9 +26,10 @@ class BoxError(Error):
 	description = "Error caused when a prediction would have been marked positive if it was localized better."
 	short_name  = "Loc"
 
-	def __init__(self, pred:dict, gt:dict, ex):
+	def __init__(self, pred:dict, gt:dict, ex,iou):
 		self.pred = pred
 		self.gt = gt
+		self.iou=iou
 
 		self.match = BestGTMatch(pred, gt) if not self.gt['used'] else None
 	
@@ -37,6 +38,22 @@ class BoxError(Error):
 			return None
 		return self.pred['class'], self.match.fix()
 
+
+class AngleError(Error):
+	description = "Error caused when a prediction would have been marked positive if it was localized better."
+	short_name = "Agl"
+
+	def __init__(self, pred: dict, gt: dict, ex,iou):
+		self.pred = pred
+		self.gt = gt
+		self.iou= iou
+
+		self.match = BestGTMatch(pred, gt) if not self.gt['used'] else None
+
+	def fix(self):
+		if self.match is None:
+			return None
+		return self.pred['class'], self.match.fix()
 
 class DuplicateError(Error):
 	

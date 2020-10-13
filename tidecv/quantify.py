@@ -250,7 +250,11 @@ class TIDERun:
 				idx = ex.gt_cls_iou[pred_idx, :].argmax()
 				if self.bg_thresh <= ex.gt_cls_iou[pred_idx, idx] <= self.pos_thresh:
 					# This detection would have been positive if it had higher IoU with this GT
-					self._add_error(BoxError(pred, ex.gt[idx], ex))
+					# 如果angle的差异大于一定阈值，便认定为angle的错误
+					if abs((preds[pred_idx]['bbox'].ry-gt[idx]['bbox'].ry)%np.pi)>(np.pi/6):
+						self._add_error(AngleError(pred, ex.gt[idx], ex,))
+					else:
+						self._add_error(BoxError(pred, ex.gt[idx], ex))
 					continue
 
 				# Test for ClassError
@@ -428,7 +432,7 @@ class TIDE:
 
 
 	# This is just here to define a consistent order of the error types
-	_error_types = [ClassError, BoxError, OtherError, DuplicateError, BackgroundError, MissedError]
+	_error_types = [ClassError, BoxError, OtherError, DuplicateError, BackgroundError, MissedError,AngleError]
 	_special_error_types = [FalsePositiveError, FalseNegativeError]
 
 	# Threshold splits for different challenges

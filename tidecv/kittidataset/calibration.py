@@ -20,6 +20,14 @@ def get_calib_from_file(calib_file):
              'R0'         : R0.reshape(3, 3),
              'Tr_velo2cam': Tr_velo_to_cam.reshape(3, 4) }
 
+def inverse_rigid_trans(Tr):
+    ''' Inverse a rigid body transform matrix (3x4 as [R|t])
+        [R'|-R't; 0|1]
+    '''
+    inv_Tr = np.zeros_like(Tr) # 3x4
+    inv_Tr[0:3,0:3] = np.transpose(Tr[0:3,0:3])
+    inv_Tr[0:3,3] = np.dot(-np.transpose(Tr[0:3,0:3]), Tr[0:3,3])
+    return inv_Tr
 
 class Calibration(object):
     def __init__(self, calib_file):
@@ -31,6 +39,7 @@ class Calibration(object):
         self.P2 = calib['P2']  # 3 x 4
         self.R0 = calib['R0']  # 3 x 3
         self.V2C = calib['Tr_velo2cam']  # 3 x 4
+        self.C2V = inverse_rigid_trans(self.V2C)
 
         # Camera intrinsics and extrinsics
         self.cu = self.P2[0, 2]
@@ -138,3 +147,19 @@ class Calibration(object):
         z = np.sqrt(d ** 2 - x ** 2 - y ** 2)
         pts_rect = np.concatenate((x.reshape(-1, 1), y.reshape(-1, 1), z.reshape(-1, 1)), axis = 1)
         return pts_rect
+    def project_ref_to_velo(self, pts_3d_ref):
+        pts_3d_ref = self.cart_to_hom(pts_3d_ref) # nx4
+        return np.dot(pts_3d_ref, np.transpose(self.C2V))
+
+    def project_rect_to_ref(self, pts_3d_rect):
+        ''' Input and Output are nx3 points '''
+        return np.transpose(np.dot(np.linalg.inv(self.R0), np.transpose(pts_3d_rect)))
+
+    def rect_to_velo(self,pts_rect):
+
+        ''' Input: nx3 points in rect camera coord.
+            Output: nx3 points in velodyne coord.
+        '''
+        pts_3d_ref = self.project_rect_to_ref(pts_rect)
+        return self.project_ref_to_velo(pts_3d_ref)
+

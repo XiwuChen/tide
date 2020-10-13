@@ -9,7 +9,7 @@ def cls_type_to_id(cls_type):
 
 
 class Object3d(object):
-    def __init__(self, line):
+    def __init__(self, line,generate_corner=True):
         label = line.strip().split(' ')
         self.src = line
         self.cls_type = label[0]
@@ -27,7 +27,10 @@ class Object3d(object):
         self.score = float(label[15]) if label.__len__() == 16 else -1.0
         self.level_str = None
         self.level = self.get_obj_level()
-        self.corner3d = self.generate_corners3d()
+        if generate_corner:
+            self.corner3d = self.generate_corners3d()
+        else:
+            self.corner3d=None
 
     def get_obj_level(self):
         height = float(self.box2d[3]) - float(self.box2d[1]) + 1
