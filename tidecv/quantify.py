@@ -248,13 +248,14 @@ class TIDERun:
 
 				# Test for BoxError
 				idx = ex.gt_cls_iou[pred_idx, :].argmax()
+
 				if self.bg_thresh <= ex.gt_cls_iou[pred_idx, idx] <= self.pos_thresh:
 					# This detection would have been positive if it had higher IoU with this GT
 					# 如果angle的差异大于一定阈值，便认定为angle的错误
 					if abs((preds[pred_idx]['bbox'].ry-gt[idx]['bbox'].ry)%np.pi)>(np.pi/6):
-						self._add_error(AngleError(pred, ex.gt[idx], ex,))
+						self._add_error(AngleError(pred, ex.gt[idx], ex,ex.gt_cls_iou[pred_idx,idx]))
 					else:
-						self._add_error(BoxError(pred, ex.gt[idx], ex))
+						self._add_error(BoxError(pred, ex.gt[idx], ex,ex.gt_cls_iou[pred_idx,idx]))
 					continue
 
 				# Test for ClassError

@@ -26,7 +26,7 @@ class BoxError(Error):
 	description = "Error caused when a prediction would have been marked positive if it was localized better."
 	short_name  = "Loc"
 
-	def __init__(self, pred:dict, gt:dict, ex,iou):
+	def __init__(self, pred:dict, gt:dict, ex,iou=None):
 		self.pred = pred
 		self.gt = gt
 		self.iou=iou
@@ -43,7 +43,7 @@ class AngleError(Error):
 	description = "Error caused when a prediction would have been marked positive if it was localized better."
 	short_name = "Agl"
 
-	def __init__(self, pred: dict, gt: dict, ex,iou):
+	def __init__(self, pred: dict, gt: dict, ex,iou=None):
 		self.pred = pred
 		self.gt = gt
 		self.iou= iou

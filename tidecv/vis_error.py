@@ -13,16 +13,16 @@ import matplotlib.pyplot as plt
 import math
 import tqdm
 
-r=(255,0,0)
-g=(0,255,0)
-b=(0,0,255)
+r=(255,0,0,128)
+g=(0,255,0,128)
+b=(0,0,255,128)
 
 def sigmoid(x):
     return 1. / (1. + math.exp(-x))
 
 
 def format_str(x:float):
-    return "%d" % int(x*1000)
+    return "%.3f" % x
 
 
 
@@ -225,19 +225,19 @@ def show_image_with_boxes(img, obj_gt,obj_pred, calib, save_dir=''):
             img2 = draw_front_3dbox(calib, g if 1 <= obj.level <= 3 else b, img2, obj)
     for obj in obj_pred:
         if obj.cls_type == 'Car':
-            img2 = draw_front_3dbox(calib, r, img2, obj)
+            img2 = draw_front_3dbox(calib, r, img2, obj,draw_score=True)
 
     img = cv2.cvtColor(img2, cv2.COLOR_RGB2BGR)
-    # cv2.imwrite(save_dir + '.png', img)
-    cv2.imshow('name',img)
+    cv2.imwrite(save_dir, img)
+    # cv2.imshow('name',img)
 
 
-def draw_front_3dbox(calib, color:tuple, img2, obj):
+def draw_front_3dbox(calib, color:tuple, img2, obj,draw_score=False):
     box3d_pts_2d, box3d_pts_3d = kitti_utils.compute_box_3d(obj, calib.P2)
     img2 = kitti_utils.draw_projected_box3d(img2, box3d_pts_2d, color, thickness=1)
     # draw score
-    if obj.score is not None:
-        kitti_utils.draw_text(img2, box3d_pts_2d, '%.3f' % obj.score, color=(255,255,0))
+    if draw_score and obj.score is not None:
+        kitti_utils.draw_text(img2, box3d_pts_2d, format_str(sigmoid(obj.score)), color=(255,255,0))
     return img2
 
 
@@ -261,7 +261,7 @@ def vis_bboxes(image_idx: int, kitti_dataset_gt: KittiDataset, kitti_dataset_pre
     #俯视图
     draw_bev_bboxes_(calib, obj_gt, obj_pred, points, save_dir+'_bev.jpg',iou=max_iou)
     #前视图
-    # show_image_with_boxes(img,obj_gt=obj_gt,obj_pred=obj_pred,calib=calib,save_dir=save_dir+'_front.jpg')
+    show_image_with_boxes(img,obj_gt=obj_gt,obj_pred=obj_pred,calib=calib,save_dir=save_dir+'_front.jpg')
 
 
 
