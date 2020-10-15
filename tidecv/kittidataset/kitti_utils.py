@@ -298,9 +298,9 @@ def compute_box_3d(obj:object3d.Object3d, P):
     corners_3d[2, :] = corners_3d[2, :] + obj.pos[2]
     # print 'cornsers_3d: ', corners_3d
     # only draw 3d bounding box for objs in front of the camera
-    if np.any(corners_3d[2, :] < 0.1):
-        corners_2d = None
-        return corners_2d, np.transpose(corners_3d)
+    # if np.any(corners_3d[2, :] < 0.1):
+    #     corners_2d = np.zer
+    #     return corners_2d, np.transpose(corners_3d)
 
     # project the 3d bounding box into the image plane
     corners_2d = project_to_image(np.transpose(corners_3d), P)
@@ -349,3 +349,20 @@ def draw_text(image, box3d_pts_2d, score, color='red', thickness=1):
     location=[int(i) for i in location]
     cv2.putText(image, text, tuple(location),fontFace=cv2.FONT_ITALIC,fontScale=0.5, thickness=thickness,color=color)
     return image
+
+
+def get_valid_flag(pts_img, pts_rect_depth, img_shape):
+    """
+    Valid point should be in the image (and in the PC_AREA_SCOPE)
+    :param pts_rect:
+    :param pts_img:
+    :param pts_rect_depth:
+    :param img_shape:
+    :return:
+    """
+    val_flag_1 = np.logical_and(pts_img[:, 0] >= 0, pts_img[:, 0] < img_shape[1])
+    val_flag_2 = np.logical_and(pts_img[:, 1] >= 0, pts_img[:, 1] < img_shape[0])
+    val_flag_merge = np.logical_and(val_flag_1, val_flag_2)
+    pts_valid_flag = np.logical_and(val_flag_merge, pts_rect_depth >= 0)
+
+    return pts_valid_flag

@@ -24,7 +24,7 @@ class ClassError(Error):
 class BoxError(Error):
 	
 	description = "Error caused when a prediction would have been marked positive if it was localized better."
-	short_name  = "Loc"
+	short_name  = "Other/MultiLoc"
 
 	def __init__(self, pred:dict, gt:dict, ex,iou=None):
 		self.pred = pred
@@ -38,10 +38,59 @@ class BoxError(Error):
 			return None
 		return self.pred['class'], self.match.fix()
 
+class SizeError(Error):
+	description = "Error caused when a prediction would have been marked positive if it was localized better."
+	short_name = "SizeValue"
+
+	def __init__(self, pred: dict, gt: dict, ex, iou=None):
+		self.pred = pred
+		self.gt = gt
+		self.iou = iou
+
+		self.match = BestGTMatch(pred, gt) if not self.gt['used'] else None
+
+	def fix(self):
+		if self.match is None:
+			return None
+		return self.pred['class'], self.match.fix()
+
+class HeightError(Error):
+	description = "Error caused when a prediction would have been marked positive if it was localized better."
+	short_name = "Zvalue"
+
+	def __init__(self, pred: dict, gt: dict, ex, iou=None):
+		self.pred = pred
+		self.gt = gt
+		self.iou = iou
+
+		self.match = BestGTMatch(pred, gt) if not self.gt['used'] else None
+
+	def fix(self):
+		if self.match is None:
+			return None
+		return self.pred['class'], self.match.fix()
+
+
+class LocateBevError(Error):
+	description = "Error caused when a prediction would have been marked positive if it was localized better."
+	short_name = "XYValue"
+
+	def __init__(self, pred: dict, gt: dict, ex, iou=None):
+		self.pred = pred
+		self.gt = gt
+		self.iou = iou
+
+		self.match = BestGTMatch(pred, gt) if not self.gt['used'] else None
+
+	def fix(self):
+		if self.match is None:
+			return None
+		return self.pred['class'], self.match.fix()
+
 
 class AngleError(Error):
 	description = "Error caused when a prediction would have been marked positive if it was localized better."
-	short_name = "Agl"
+	short_name = "AngleValue"
 
 	def __init__(self, pred: dict, gt: dict, ex,iou=None):
 		self.pred = pred

@@ -11,6 +11,8 @@ import numpy as np
 from typing import Union
 import os, math
 from .kittidataset import kitti_utils
+import copy
+
 
 class TIDEExample:
 	""" Computes all the data needed to evaluate a set of predictions and gt for a single image. """
@@ -248,14 +250,54 @@ class TIDERun:
 
 				# Test for BoxError
 				idx = ex.gt_cls_iou[pred_idx, :].argmax()
-
-				if self.bg_thresh <= ex.gt_cls_iou[pred_idx, idx] <= self.pos_thresh:
+				gt_box = copy.deepcopy(ex.gt[idx]['bbox'])
+				tmp_pred = copy.deepcopy(preds[pred_idx]['bbox'])
+				if self.bg_thresh <= ex.gt_cls_iou[pred_idx, idx] < self.pos_thresh:
 					# This detection would have been positive if it had higher IoU with this GT
 					# 如果angle的差异大于一定阈值，便认定为angle的错误
-					if abs((preds[pred_idx]['bbox'].ry-gt[idx]['bbox'].ry)%np.pi)>(np.pi/6):
+					# 现在修改为，如果角度差大于一定阈值，并且将pred的角度改为gt的角度之后，能够使得iou变得高于一定阈值，我们认为是angle的问题
+
+					refine_box= copy.deepcopy(tmp_pred)
+
+					refine_box.ry = gt_box.ry
+					refine_box.generate_corners3d()
+					iou_refine = kitti_utils.get_iou3d(refine_box.corner3d.reshape(1,8,3),gt_box.corner3d.reshape(1,8,3))
+					if iou_refine>=self.pos_thresh:
+						print('refine success!')
 						self._add_error(AngleError(pred, ex.gt[idx], ex,ex.gt_cls_iou[pred_idx,idx]))
-					else:
-						self._add_error(BoxError(pred, ex.gt[idx], ex,ex.gt_cls_iou[pred_idx,idx]))
+						continue
+
+					refine_box = copy.deepcopy(tmp_pred)
+
+					refine_box.w = gt_box.w
+					refine_box.l =gt_box.l
+					refine_box.generate_corners3d()
+					iou_refine = kitti_utils.get_iou3d(refine_box.corner3d.reshape(1,8,3),gt_box.corner3d.reshape(1,8,3))
+					if iou_refine>self.pos_thresh:
+						self._add_error(SizeError(pred, ex.gt[idx], ex, ex.gt_cls_iou[pred_idx, idx]))
+						continue
+
+					refine_box = copy.deepcopy(tmp_pred)
+
+					refine_box.pos[0:2] = gt_box.pos[0:2]
+					refine_box.generate_corners3d()
+					iou_refine = kitti_utils.get_iou3d(refine_box.corner3d.reshape(1, 8, 3),
+													   gt_box.corner3d.reshape(1, 8, 3))
+					if iou_refine>self.pos_thresh:
+						self._add_error(LocateBevError(pred, ex.gt[idx], ex, ex.gt_cls_iou[pred_idx, idx]))
+						continue
+
+					refine_box = copy.deepcopy(tmp_pred)
+
+					refine_box.pos[2] = gt_box.pos[2]
+					refine_box.generate_corners3d()
+					iou_refine = kitti_utils.get_iou3d(refine_box.corner3d.reshape(1, 8, 3),
+													   gt_box.corner3d.reshape(1, 8, 3))
+					if iou_refine > self.pos_thresh:
+						self._add_error(HeightError(pred, ex.gt[idx], ex, ex.gt_cls_iou[pred_idx, idx]))
+						continue
+
+					self._add_error(BoxError(pred, ex.gt[idx], ex,ex.gt_cls_iou[pred_idx,idx]))
 					continue
 
 				# Test for ClassError
@@ -433,7 +475,7 @@ class TIDE:
 
 
 	# This is just here to define a consistent order of the error types
-	_error_types = [ClassError, BoxError, OtherError, DuplicateError, BackgroundError, MissedError,AngleError]
+	_error_types = [ClassError, BoxError, OtherError, DuplicateError, BackgroundError, MissedError,AngleError,LocateBevError,HeightError,SizeError]
 	_special_error_types = [FalsePositiveError, FalseNegativeError]
 
 	# Threshold splits for different challenges

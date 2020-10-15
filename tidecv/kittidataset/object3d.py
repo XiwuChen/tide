@@ -64,6 +64,7 @@ class Object3d(object):
         corners3d = np.vstack([x_corners, y_corners, z_corners])  # (3, 8)
         corners3d = np.dot(R, corners3d).T
         corners3d = corners3d + self.pos
+        self.corner3d = corners3d
         return corners3d
 
     def to_bev_box2d(self, oblique = True, voxel_size = 0.1):

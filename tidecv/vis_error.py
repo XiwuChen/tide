@@ -227,7 +227,7 @@ def show_image_with_boxes(img, obj_gt,obj_pred, calib, save_dir=''):
         if obj.cls_type == 'Car':
             img2 = draw_front_3dbox(calib, r, img2, obj,draw_score=True)
 
-    img = cv2.cvtColor(img2, cv2.COLOR_RGB2BGR)
+    # img = cv2.cvtColor(img2, cv2.COLOR_RGB2BGR)
     cv2.imwrite(save_dir, img)
     # cv2.imshow('name',img)
 
@@ -251,6 +251,14 @@ def vis_bboxes(image_idx: int, kitti_dataset_gt: KittiDataset, kitti_dataset_pre
     obj_pred = kitti_dataset_pred.get_label(image_idx)
     obj_gt = kitti_dataset_gt.get_label(image_idx)
     img = kitti_dataset_gt.get_image(image_idx)
+    img_shape = img.shape[0:2]
+
+    # get point in front view
+    pts_rect = calib.lidar_to_rect(points[:, 0:3])
+    pts_img, pts_depth = calib.rect_to_img(pts_rect)
+    pts_valid_flag = kitti_utils.get_valid_flag(pts_img, pts_depth, img_shape)
+    # (W,H)
+    points = points[pts_valid_flag][:, :]
 
     detections = np.array([x.corner3d for x in obj_pred]).reshape((-1, 8, 3))
     gt_corners = np.array([x.corner3d for x in obj_gt]).reshape((-1, 8, 3))
